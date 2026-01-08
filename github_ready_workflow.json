@@ -1,0 +1,203 @@
+{
+  "name": "LinkedIn Job Finder - Automated",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "manual-trigger-001",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "YOUR_GOOGLE_DOC_ID_HERE"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [224, 0],
+      "id": "google-docs-001",
+      "name": "Get Resume from Google Docs",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "YOUR_GOOGLE_DOCS_CREDENTIAL_ID",
+          "name": "Google Docs OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a resume analyzer. Analyze the resume and return ONLY a valid JSON object:\n{\n  \"jobTitles\": [\"primary job title\", \"secondary job title\"],\n  \"skills\": [\"skill1\", \"skill2\", \"skill3\", \"skill4\", \"skill5\"],\n  \"experienceLevel\": \"junior|mid-level|senior\",\n  \"location\": \"Remote or City, Country\"\n}\n\nReturn ONLY the JSON object, no other text before or after."
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.content }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [432, 0],
+      "id": "resume-analyzer-001",
+      "name": "Resume Analyzer",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/hKByXkMQaC5Qt9UMN/run-sync-get-dataset-items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_APIFY_API_KEY_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"count\": 100,\n  \"scrapeCompany\": true,\n  \"urls\": [\n    \"https://www.linkedin.com/jobs/search/?keywords=junior%20full%20stack%20developer&location=Canada&f_TPR=r86400&sortBy=DD\"\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [640, 0],
+      "id": "scrape-jobs-001",
+      "name": "Scrape LinkedIn Jobs"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "jobs",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [848, 0],
+      "id": "aggregate-001",
+      "name": "Combine Jobs"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get jobs from aggregate\nconst allJobs = $json.jobs || [];\n\n// Take only first 10 jobs to reduce tokens\nconst limitedJobs = allJobs.slice(0, 10);\n\nconsole.log(`Total jobs: ${allJobs.length}, Limited to: ${limitedJobs.length}`);\n\n// Return with pairing\nreturn {\n  json: {\n    jobs: limitedJobs,\n    totalCount: allJobs.length,\n    limitedCount: limitedJobs.length\n  },\n  pairedItem: 0\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1056, 0],
+      "id": "limit-jobs-001",
+      "name": "Limit Jobs"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a professional email formatter. Create a clean HTML email with a LinkedIn-style table.\n\nIMPORTANT: \n- Use EXACT 'url' or 'link' field from job data - NEVER invent URLs\n- Select 5-10 most relevant jobs based on resume match\n- Return ONLY complete HTML starting with <html>\n\nHTML Template:\n<html>\n<head>\n<style>\nbody{font-family:Arial,sans-serif;max-width:900px;margin:20px auto;padding:20px;background:#f5f5f5}\n.email-container{background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)}\n.header{background:#0077B5;color:white;padding:30px;text-align:center}\n.header h1{margin:0;font-size:24px;font-weight:normal}\ntable{width:100%;border-collapse:collapse;margin:0}\nth{background:#0077B5;color:white;padding:15px;text-align:left;font-weight:600;font-size:14px;border-right:1px solid #006699}\nth:last-child{border-right:none}\ntd{padding:15px;border-bottom:1px solid #e0e0e0;border-right:1px solid #e0e0e0;font-size:14px;color:#333}\ntd:last-child{border-right:none}\ntr:hover{background:#f8f9fa}\n.apply-link{color:#0077B5;text-decoration:none;font-weight:600}\n.apply-link:hover{text-decoration:underline}\n.footer{padding:20px;text-align:center;color:#666;font-size:12px;background:#f8f9fa}\n.footer a{color:#0077B5;text-decoration:none}\n</style>\n</head>\n<body>\n<div class=\"email-container\">\n<div class=\"header\">\n<h1>Job Opportunity Based on Your Resume</h1>\n</div>\n<table>\n<thead>\n<tr>\n<th>Job Title</th>\n<th>Company Name</th>\n<th>Location</th>\n<th>Job Type</th>\n<th>Link</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>[Job Title from data]</td>\n<td>[Company Name from data]</td>\n<td>[Location from data]</td>\n<td>[Job Type from data]</td>\n<td><a href=\"[EXACT URL FROM DATA]\" class=\"apply-link\" target=\"_blank\">Apply Here</a></td>\n</tr>\n</tbody>\n</table>\n<div class=\"footer\">\n---<br>\nThis email was sent automatically with <a href=\"https://n8n.io\">n8n</a>\n</div>\n</div>\n</body>\n</html>\n\nCRITICAL: Use real data from scraped jobs. Each job MUST have actual LinkedIn URL."
+            },
+            {
+              "role": "user",
+              "content": "=Resume Analysis:\n{{ $('Resume Analyzer').item.json.output[0].content[0].text }}\n\nScraped Jobs ({{ $json.limitedCount }} jobs):\n{{ JSON.stringify($json.jobs) }}\n\nCreate an HTML email table with 5-10 most relevant jobs. Use their EXACT URLs from the data."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [1264, 0],
+      "id": "format-email-001",
+      "name": "Format Email",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@gmail.com",
+        "subject": "Job Opportunity Based on Your Resume",
+        "emailType": "html",
+        "message": "={{ $json.output[0].content[0].text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1472, 0],
+      "id": "send-email-001",
+      "name": "Send Email",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail OAuth2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Get Resume from Google Docs", "type": "main", "index": 0}]]
+    },
+    "Get Resume from Google Docs": {
+      "main": [[{"node": "Resume Analyzer", "type": "main", "index": 0}]]
+    },
+    "Resume Analyzer": {
+      "main": [[{"node": "Scrape LinkedIn Jobs", "type": "main", "index": 0}]]
+    },
+    "Scrape LinkedIn Jobs": {
+      "main": [[{"node": "Combine Jobs", "type": "main", "index": 0}]]
+    },
+    "Combine Jobs": {
+      "main": [[{"node": "Limit Jobs", "type": "main", "index": 0}]]
+    },
+    "Limit Jobs": {
+      "main": [[{"node": "Format Email", "type": "main", "index": 0}]]
+    },
+    "Format Email": {
+      "main": [[{"node": "Send Email", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

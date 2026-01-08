@@ -1,0 +1,54 @@
+# Sensitive Data
+*.env
+.env.local
+.env.production
+credentials.json
+config.local.json
+secrets.json
+
+# API Keys (just in case)
+*_API_KEY*
+*apikey*
+*api-key*
+
+# n8n Data
+.n8n/
+database.sqlite
+*.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (if you have any local scripts)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Backups
+*.bak
+*.backup
+backup/
+
+# Test files with real data
+test-with-real-data.json
+my-actual-workflow.json
