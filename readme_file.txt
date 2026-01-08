@@ -248,4 +248,4 @@ If this helped you land a job, please star this repo! ⭐
 
 ---
 
-Made with ❤️ by [Your Name](https://github.com/YOUR_USERNAME)
+Made with ❤️ by Vinayak Dev (https://github.com/vxdcore)
